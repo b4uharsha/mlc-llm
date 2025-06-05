@@ -61,6 +61,7 @@ jobs:
       - name: Run Tests Inside Docker Image
         run: |
           docker run --rm \
+            -e CI=true \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             ghcr.io/${{ github.repository }}:latest \
