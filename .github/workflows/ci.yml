@@ -125,7 +125,8 @@ jobs:
           name: Release ${{ github.ref_name }}
           files: ./artifacts/**/*.whl
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
 
   # Stage 5: Serve Demo Model from Docker Image
   deploy-demo-model:
