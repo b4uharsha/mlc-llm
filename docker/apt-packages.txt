@@ -13,3 +13,5 @@ libxml2-dev
 zlib1g-dev
 rustc
 cargo
+build-essential
+ca-certificates
