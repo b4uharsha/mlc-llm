@@ -87,6 +87,10 @@ jobs:
         with:
           python-version: 3.10
 
+      # Print Python version
+      - name: Print Python version
+        run: python --version
+
       # Install build tool and dependencies
       - name: Install build tool and dependencies
         run: |
