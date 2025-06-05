@@ -1,0 +1,12 @@
+.git
+*.safetensors
+*.pt
+*.onnx
+__pycache__/
+*.log
+dist/
+build/
+outputs/
+notebooks/
+.vscode/
+.idea/
