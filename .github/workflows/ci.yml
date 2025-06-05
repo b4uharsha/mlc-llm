@@ -43,18 +43,28 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:latest
           platforms: linux/amd64
 
-  # Stage 2: Run Tests in Docker
+  # Stage 2: Run Automated Tests inside Multipurpose Docker Image
   test:
     name: Stage 2 - Run Tests
     runs-on: ubuntu-latest
     needs: docker-build
     steps:
+      # Checkout the repository code to the runner
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      # Authenticate with GitHub Container Registry to pull the Docker image
+      - name: Authenticate with GHCR
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # Run tests inside the multipurpose Docker image
       - name: Run Tests Inside Docker Image
         run: |
-          docker run --rm ghcr.io/${{ github.repository }}:latest ./scripts/test-image.sh
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            ghcr.io/${{ github.repository }}:latest \
+            ./scripts/test-image.sh
 
   # Stage 3: Build Python Wheels for Linux & Windows
   build-wheels:
