@@ -1,135 +1,142 @@
-# 🤖 MLC-LLM CI/CD + Demo Deployment
+# MLC-LLM CI/CD Pipeline
 
-This project demonstrates how to build, test, package, and deploy [MLC-LLM](https://llm.mlc.ai) using GitHub Actions in a fully automated CI/CD pipeline. It includes:
+> **Repository:** [https://github.com/b4uharsha/mlc-llm](https://github.com/b4uharsha/mlc-llm)
 
-* Multi-platform Python packaging (Linux, Windows, macOS)
-* Docker-based model compilation and testing
-* Automatic GitHub Releases
-* GPU-enabled demo model serving with FastAPI
+This repository implements a full CI/CD pipeline for the [MLC-LLM project](https://llm.mlc.ai/docs/index.html). It enables **building**, **testing**, and **deploying** a multipurpose Docker image and **publishing cross-platform Python wheels** as GitHub releases. It also includes a **demo deployment** that serves a quantized LLM model via a FastAPI interface.
 
 ---
 
-## 🚀 What is MLC-LLM?
+## 🔧 What Is This Project?
 
-**MLC-LLM** enables efficient LLM inference on any device, including CPUs, NVIDIA/AMD GPUs, and mobile. It compiles and optimizes models to run across platforms without relying on heavyweight frameworks like PyTorch or TensorFlow.
-
-Use-cases:
-
-* Portable AI inference
-* Quantized LLM deployment (e.g., Llama-2, Mistral)
-* Edge or containerized model serving
+MLC-LLM is a framework to deploy LLMs with TVM-native performance and quantization support. This repository automates its build and deployment lifecycle.
 
 ---
 
-## 📦 Key Technologies Used
+## 🚀 Features
 
-| Tool                          | Purpose                                      |
-| ----------------------------- | -------------------------------------------- |
-| `mlc-llm`                     | LLM compiler, model loader, server interface |
-| `CMake`, `Ninja`              | Native compilation for `mlc-llm` runtime     |
-| `Docker`, `GHCR`              | Containerized build and serving environment  |
-| `GitHub Actions`              | CI/CD automation                             |
-| `softprops/action-gh-release` | GitHub Release automation                    |
-| `curl`, `jq`                  | Test API endpoints from deployed container   |
+### ✅ Multipurpose Docker Image
+
+* Based on Ubuntu with build tools, Python, and dependencies.
+* Supports both **development mode** (shell access) and **build mode** (used in CI).
+* Automatically built and pushed to GHCR (GitHub Container Registry).
+
+### ✅ Cross-Platform Wheel Packaging
+
+* Builds the `mlc_llm` Python package.
+* Outputs `.whl` files for:
+
+  * Linux (x64)
+  * Windows (x64)
+  * macOS (x64)
+
+### ✅ GitHub Actions CI/CD Pipeline
+
+* Triggers on:
+
+  * Push to `main`
+  * Version tags `v*.*.*`
+* CI Pipeline stages:
+
+  1. Build Docker Image and push to GHCR
+  2. Run automated tests inside the Docker container
+  3. Build Python wheels on multiple platforms
+  4. Create GitHub Release with built wheels
+  5. Deploy and validate a demo model server
+
+### ✅ Demo Deployment
+
+* Pulls the Docker image from GHCR
+* Downloads a small quantized LLM model (`Llama-2-7b-chat-hf-q4f16_1`)
+* Serves it via `mlc_llm serve`
+* Sends a test request to validate model response
+
+> ⚠️ Note: GitHub-hosted runners **do not support GPUs**, so the demo is only for syntax/flow validation. A real deployment should run on a **GPU-enabled machine** or **cloud instance**.
 
 ---
 
-## 🔀 CI/CD Flow Overview
+## 📦 Packages & Tools Used
+
+| Tool                          | Purpose                                |
+| ----------------------------- | -------------------------------------- |
+| `docker/build-push-action`    | Build/push image to GHCR               |
+| `actions/setup-python`        | Configure Python 3.10 across platforms |
+| `mlc_llm`                     | Python package being built/tested      |
+| `pytest`, `curl`, `jq`        | Testing and demo validation            |
+| `softprops/action-gh-release` | Publish GitHub releases                |
+
+---
+
+## 📂 Project Structure
 
 ```
-[Commit or Tag Push]
-        │
-        ▼
-📈 GitHub Actions Triggered
-        │
-        ▼
-[Stage 1: Docker Image Build & Push]
-        │
-        ▼
-[Stage 2: Run Tests in Container]
-        │
-        ▼
-[Stage 3: Build Python Wheels (.whl)]
-        │
-        ▼
-[Stage 4: GitHub Release with Wheels]
-        │
-        ▼
-[Stage 5: Deploy Model with FastAPI]
-        │
-        ▼
-[POST Request to Validate Model Response]
+mlc-llm/
+├── .github/workflows/ci.yml   # CI/CD pipeline
+├── docker/Dockerfile          # Multipurpose build image
+├── python/                    # Python package source
+├── scripts/test-image.sh      # Automated tests
 ```
 
 ---
 
-## 📊 Stage Summary
+## 🖼️ Architecture Diagram
 
-| Stage               | Purpose                                | Output                                    |
-| ------------------- | -------------------------------------- | ----------------------------------------- |
-| `docker-build`      | Compile + push image to GHCR           | `ghcr.io/<repo>:latest`                   |
-| `test`              | Run model diagnostics inside container | Unit test validation                      |
-| `build-wheels`      | Cross-platform wheel packaging         | `.whl` files (Linux, Windows, macOS)      |
-| `release`           | GitHub release + artifact upload       | Tag-based release with binaries           |
-| `deploy-demo-model` | Launch FastAPI + model serving demo    | Accessible API on `http://localhost:8000` |
-| *(optional)* UI     | Future Gradio/Streamlit demo           | Public interface to interact with model   |
+Below is the CI/CD pipeline overview:
+
+![CI/CD Architecture](https://files.chat.openai.com/file-000000005c406243918f50fd26b742b8)
 
 ---
 
-## 🧪 Example Model Used
-
-The deployed demo uses the quantized test model:
+## 🧪 Local Development Instructions
 
 ```bash
-mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1
-mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
+# Clone repo
+$ git clone https://github.com/b4uharsha/mlc-llm.git
+$ cd mlc-llm
+
+# Build docker image
+$ docker build -t mlc-llm-dev -f docker/Dockerfile .
+
+# Start interactive shell for dev
+$ docker run -it --rm -v $PWD:/mlc-llm mlc-llm-dev bash
+
+# Run model serving demo manually
+$ mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1
+$ mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
 ```
 
 ---
 
-## 🌐 Optional: UI Demo Preview (Future)
+## 🔁 CI/CD Flow Summary
 
-In future enhancements, the deployment stage can be extended to include a UI demo using:
-
-* **Gradio**
-* **Streamlit**
-* **Hugging Face Spaces** or **Vercel**
-
-```python
-import gradio as gr
-from requests import post
-
-def chat(input):
-    payload = {
-        "model": "Llama-2-7b-chat-hf-q4f16_1",
-        "messages": [{"role": "user", "content": input}]
-    }
-    response = post("http://localhost:8000/v1/chat/completions", json=payload)
-    return response.json()["choices"][0]["message"]["content"]
-
-gr.Interface(fn=chat, inputs="text", outputs="text").launch()
+```mermaid
+graph TD
+  A[Push or Tag to GitHub] --> B[Build & Push Docker Image]
+  B --> C[Run Tests in Container]
+  C --> D[Build Wheels on Linux/Windows/Mac]
+  D --> E[Create GitHub Release with Wheels]
+  E --> F[Deploy Demo Model in Docker]
+  F --> G[Send Test Chat Completion Request]
 ```
 
 ---
 
-## 🧰 Final Notes
+## 📤 Submitting the Assignment
 
-* All CI/CD steps are defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
-* The pipeline is triggered on **every commit to `main`** and **version tag push**
-* The deployment phase **pulls from GHCR** and serves a model immediately
-
----
-
-## 🧠 Want to Contribute?
-
-Fork, improve the build process, or try deploying other quantized models using MLC’s build tools.
+* ✅ All steps from the assignment brief are implemented.
+* ✅ Share the GitHub repo link with: `subashsn`, `chetasr`
+* ✅ Include this `README.md` and diagrams in your final email.
 
 ---
 
-## 📌 Links
+## 📌 Optional Enhancements
 
-* 🔗 [MLC-LLM Docs](https://llm.mlc.ai/)
-* 🐙 [GitHub Repo](https://github.com/b4uharsha/mlc-llm)
-* 📆 [GitHub Release](https://github.com/b4uharsha/mlc-llm/releases)
+* [ ] Add UI support with `/docs` using FastAPI’s built-in Swagger
+* [ ] Deploy to AWS EC2 or GCP with GPU for live demo
+* [ ] Add GitHub Pages for documentation site
 
 ---
+
+## 📫 Maintainer
+
+**Harsha Reddy**
+🔗 GitHub: [b4uharsha/mlc-llm](https://github.com/b4uharsha/mlc-llm)
