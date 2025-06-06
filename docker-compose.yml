@@ -1,25 +1,40 @@
-version: "3.8"
+version: "3.9"
 
 services:
-  app:
+  mlc-llm:
     image: ghcr.io/b4uharsha/mlc-llm:latest
-    container_name: mlc-llm-app
-    restart: always
+    container_name: mlc-llm
     ports:
       - "8000:8000"
-    command: mlc_llm serve --host 0.0.0.0
     volumes:
-      - ./python:/mlc-llm/python
-    depends_on:
-      - nginx
+      - .:/workspace
+    command: mlc_llm serve --host 0.0.0.0 --port 8000
+    restart: unless-stopped
 
   nginx:
-    image: nginx:stable
+    image: nginx:stable-alpine
     container_name: mlc-llm-nginx
-    restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certbot-webroot:/var/www/certbot:ro
+      - ./nginx/letsencrypt:/etc/letsencrypt
     depends_on:
-      - app
+      - mlc-llm
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    container_name: mlc-llm-certbot
+    volumes:
+      - ./nginx/certbot-webroot:/var/www/certbot
+      - ./nginx/letsencrypt:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done"
+    restart: unless-stopped
