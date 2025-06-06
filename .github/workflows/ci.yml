@@ -3,12 +3,10 @@ name: MLC-LLM CI/CD
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write  # Required for release/tagging
 
 defaults:
   run:
@@ -17,12 +15,13 @@ defaults:
 
 jobs:
 
-  # Stage 1: Build and Push Docker Image
   docker-build:
     name: Build Docker Image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for git tagging
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -36,9 +35,7 @@ jobs:
           file: docker/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository }}:latest
-          platforms: linux/amd64
 
-  # Stage 2: Run Tests
   test:
     name: Run Automated Tests
     runs-on: ubuntu-latest
@@ -47,21 +44,20 @@ jobs:
       - uses: actions/checkout@v4
       - run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       - run: |
-          docker run --rm \
+          docker run --rm --gpus all \
             -e CI=true \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             ghcr.io/${{ github.repository }}:latest \
             ./scripts/test-image.sh
 
-  # Stage 3: Build Wheels
   build-wheels:
     name: Build Python Wheels
     runs-on: ${{ matrix.os }}
     needs: test
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,18 +74,15 @@ jobs:
           name: wheel-${{ matrix.os }}
           path: python/dist/*.whl
 
-  # Stage 4: Auto Release on Main Commits
   release:
-    name: Create GitHub Release
+    name: Create GitHub Release (Auto Tag)
     runs-on: ubuntu-latest
     needs: build-wheels
-    if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          path: ./artifacts
-
-      - name: Create Timestamped Tag
+          fetch-depth: 0  # Required for tagging
+      - name: Create Auto Tag
         run: |
           TAG="auto-release-$(date +'%Y%m%d%H%M%S')"
           git config --global user.name "GitHub Actions"
@@ -98,41 +91,42 @@ jobs:
           git push origin "$TAG"
           echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
 
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
       - uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ env.RELEASE_TAG }}
           tag_name: ${{ env.RELEASE_TAG }}
-          files: |
-            ./artifacts/wheel-ubuntu-latest/*.whl
-            ./artifacts/wheel-windows-latest/*.whl
-            ./artifacts/wheel-macos-latest/*.whl
+          name: Release ${{ env.RELEASE_TAG }}
+          files: ./artifacts/**/*.whl
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Stage 5: Deploy & Validate Demo
-  deploy-demo-model:
-    name: Deploy & Validate Service
+  deploy:
+    name: Deploy & Validate Model
     runs-on: ubuntu-latest
     needs: release
     steps:
       - run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - run: |
-          docker run -d --name mlc-server -p 8000:8000 \
+      - name: Launch MLC-LLM Demo Server
+        run: |
+          docker run -d --gpus all --name mlc-server -p 8000:8000 \
             ghcr.io/${{ github.repository }}:latest \
             bash -c "
               mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1 && \
               mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
             "
 
-      - name: Wait for FastAPI to be ready
+      - name: Wait for API to be Healthy
         run: |
           for i in {1..15}; do
-            curl -fsS http://localhost:8000/ && break || sleep 5
+            curl -fsS http://localhost:8000/healthz && break || sleep 5
           done
 
-      - name: Test Chat Completion Endpoint
+      - name: Test Chat Completion
         run: |
           curl -X POST http://localhost:8000/v1/chat/completions \
             -H "Content-Type: application/json" \
@@ -141,5 +135,6 @@ jobs:
               "messages": [{"role": "user", "content": "Hello, who are you?"}]
             }' | jq .
 
-      - run: docker rm -f mlc-server
+      - name: Cleanup
+        run: docker rm -f mlc-server
         if: always()
