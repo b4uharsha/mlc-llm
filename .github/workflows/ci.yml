@@ -3,6 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
+  # This line makes the workflow show up with a "Run workflow" button in the Actions UI.
   workflow_dispatch:
 
 permissions:
@@ -49,8 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
-      # ←→ ADDED: login step so that `docker run ghcr.io/...` can pull the image
-      - name: Login to GHCR (to allow pulling the just-published image)
+      - name: Login to GHCR (so we can pull the just-published image)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -87,7 +87,7 @@ jobs:
         run: pip install build
         shell: bash
 
-      # Force Bash on both Linux and Windows so that `WHL=$(ls …)` works as intended.
+      # Force Bash on both Linux and Windows so that `WHL=$(ls …)` works:
       - name: Build wheel
         run: |
           python -m build python/
