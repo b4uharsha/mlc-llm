@@ -30,9 +30,9 @@ if [[ $SUCCESS -ne 1 ]]; then
 fi
 
 echo "[INFO] Running API test..."
-
 set +e
-curl -X POST http://localhost:8000/v1/chat/completions -H "Content-Type: application/json" \
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
   -d '{"model":"Llama-2-7b-chat-glm-4b-q0f16_0","messages":[{"role":"user","content":"Hello!"}]}' -v
 TEST_EXIT_CODE=$?
 set -e
@@ -47,5 +47,8 @@ echo "[INFO] API test succeeded."
 
 echo "[INFO] Stopping server..."
 kill $SERVER_PID
-wait $SERVER_PID 2>/dev/null || true
+timeout 10s wait $SERVER_PID 2>/dev/null || {
+  echo "[WARN] Server did not stop in time, forcing kill..."
+  kill -9 $SERVER_PID || true
+}
 echo "[INFO] Server stopped."
