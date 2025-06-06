@@ -1,21 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-CMD=${1:-}
+MODEL="Llama-2-7b-chat-glm-4b-q0f16_0"
 
-if [[ "$CMD" == "build" ]]; then
-  if [[ -f "CMakeLists.txt" ]]; then
-    echo "[INFO] 🔨 Building project via CMake..."
-    mkdir -p build && cd build
-    cmake -GNinja ..
-    ninja
-  else
-    echo "[INFO]  No CMakeLists.txt found. Skipping build step."
-  fi
-elif [[ "$CMD" == "" || "$CMD" == "serve" ]]; then
-  echo "[INFO] Starting FastAPI server..."
-  exec mlc_llm serve --host 0.0.0.0
-else
-  echo "[INFO]  Executing: $@"
-  exec "$@"
-fi
+echo "[INFO] 📦 Downloading model: $MODEL"
+mlc_llm download-model --model-name "$MODEL"
+
+echo "[INFO] 🚀 Launching MLC-LLM model server..."
+exec mlc_llm serve --model "$MODEL" --device cpu --host 0.0.0.0
