@@ -13,9 +13,11 @@ COPY docker/apt-packages.txt /tmp/apt-packages.txt
 COPY docker/pip-build.txt /tmp/pip-build.txt
 COPY docker/pip-requirements.txt /tmp/pip-requirements.txt
 
-RUN apt-get update && \
+RUN apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends apt-utils && \
     xargs -a /tmp/apt-packages.txt apt-get install -y --no-install-recommends && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
 
 RUN ln -sf /usr/bin/python3 /usr/bin/python && \
     ln -sf /usr/bin/pip3 /usr/bin/pip && \
