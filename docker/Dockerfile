@@ -42,6 +42,9 @@ RUN chmod +x /mlc-llm/scripts/*.sh /mlc-llm/docker/entrypoint.sh
 # Switch to non-root
 USER mlcuser
 
+# Ensure local Python bin path is in PATH
+ENV PATH="/home/mlcuser/.local/bin:$PATH"
+
 # Install FlashInfer and MLC-LLM in editable mode
 RUN pip install --no-cache-dir "git+https://github.com/flashinfer-ai/flashinfer@v0.2.5" && \
     pip install --no-cache-dir -e ./python
@@ -89,6 +92,9 @@ RUN chown -R mlcuser:mlcgroup /mlc-llm
 ENV TVM_LIBRARY_PATH=/mlc-llm/build
 ENV LD_LIBRARY_PATH=/mlc-llm/build:$LD_LIBRARY_PATH
 ENV PORT=8000
+
+# Ensure local Python bin path is in PATH
+ENV PATH="/home/mlcuser/.local/bin:$PATH"
 
 # Switch to non-root user
 USER mlcuser
