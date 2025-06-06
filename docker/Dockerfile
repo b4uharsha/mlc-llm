@@ -14,7 +14,8 @@ COPY docker/pip-build.txt /tmp/pip-build.txt
 COPY docker/pip-requirements.txt /tmp/pip-requirements.txt
 
 RUN apt-get update && \
-    xargs -a /tmp/apt-packages.txt apt-get install -y --no-install-recommends && \
+    xargs -a /tmp/apt-packages.txt apt-get install -y --no-install-recommends \
+    nginx certbot && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/python3 /usr/bin/python && \

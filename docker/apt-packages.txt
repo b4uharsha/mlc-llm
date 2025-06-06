@@ -15,3 +15,5 @@ rustc
 cargo
 build-essential
 ca-certificates
+nginx
+certbot
