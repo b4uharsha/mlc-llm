@@ -9,7 +9,7 @@ setup(
     python_requires=">=3.8",
     entry_points={
         'console_scripts': [
-            'mlc_llm=mlc_llm.cli:main',  # Replace with actual module/function
+            'mlc_llm=mlc_llm.cli:main',  # Make sure cli.py defines a `main()` function
         ],
     },
 )
