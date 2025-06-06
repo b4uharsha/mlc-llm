@@ -118,16 +118,7 @@ graph TD
   F --> G[Send Test Chat Completion Request]
 ```
 
----
-
-## 📤 Submitting the Assignment
-
-* ✅ All steps from the assignment brief are implemented.
-* ✅ Share the GitHub repo link with: `subashsn`, `chetasr`
-* ✅ Include this `README.md` and diagrams in your final email.
-
----
-
+--
 ## 📌 Optional Enhancements
 
 * [ ] Add UI support with `/docs` using FastAPI’s built-in Swagger
@@ -140,3 +131,24 @@ graph TD
 
 **Harsha Reddy**
 🔗 GitHub: [b4uharsha/mlc-llm](https://github.com/b4uharsha/mlc-llm)
+
+---
+
+**How to use the diagrams:**  
+- Place the images you uploaded in `docs/assets/` (or update the paths above to match your repo).
+- The diagrams will visually explain the build, CI/CD, and deployment flows for all contributors and reviewers.
+
+**This README is now fully aligned with your code and workflow, and includes the architecture diagrams for clarity.**
+
+**Instructions:**
+- Place your images in `docs/assets/` (or update the paths if you use a different folder).
+- The Mermaid flowchart will render on GitHub and in Markdown viewers that support Mermaid.
+- This structure ensures that anyone reading your README will immediately see the high-level architecture and CI/CD flow.
+
+**Tip:**  
+If you want to keep the README in the root, update the image paths to `./docs/assets/filename.png`.  
+If you want to keep it in , use `assets/filename.png`.
+
+---
+
+**This approach will make your documentation visually clear and easy to follow for all contributors and reviewers.**
