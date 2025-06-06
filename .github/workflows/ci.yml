@@ -71,10 +71,13 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
       - run: pip install build
       - run: python -m build python/
+      - run: |
+          WHL=$(ls python/dist/*.whl)
+          mv "$WHL" "python/dist/mlc_llm-${{ matrix.os }}.whl"
       - uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.os }}
-          path: python/dist/*.whl
+          path: python/dist/mlc_llm-${{ matrix.os }}.whl
 
   release:
     name: Auto Release Every Commit
@@ -82,7 +85,7 @@ jobs:
     needs: build-wheels
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4  # ✅ Required for Git tag commands
+      - uses: actions/checkout@v4
 
       - name: Generate Release Tag
         run: |
@@ -102,10 +105,9 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           name: Release ${{ env.RELEASE_TAG }}
           files: |
-            ./artifacts/wheel-ubuntu-latest/*.whl
-            ./artifacts/wheel-windows-latest/*.whl
-            ./artifacts/wheel-macos-latest/*.whl
-          overwrite: true
+            ./artifacts/wheel-ubuntu-latest/mlc_llm-ubuntu-latest.whl
+            ./artifacts/wheel-windows-latest/mlc_llm-windows-latest.whl
+            ./artifacts/wheel-macos-latest/mlc_llm-macos-latest.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -121,17 +123,24 @@ jobs:
           docker run -d --name mlc-server -p 8000:8000 \
             ${{ env.IMAGE_NAME }} \
             bash -c "
+              set -x && \
               mlc_llm download-model --model-name Llama-2-7b-chat-glm-4b-q0f16_0 && \
-              mlc_llm serve --model Llama-2-7b-chat-glm-4b-q0f16_0 --device cpu
+              mlc_llm serve --model Llama-2-7b-chat-glm-4b-q0f16_0 --device cpu --host 0.0.0.0
             "
 
       - name: Wait for Model Server
         run: |
-          for i in {1..15}; do
+          for i in {1..30}; do
+            echo "Waiting for server on attempt $i..."
             curl -fsS http://localhost:8000/ && break || sleep 5
           done
 
+      - name: Debug Container Logs (if failed)
+        if: failure()
+        run: docker logs mlc-server || true
+
       - name: Validate Chat Completion
+        continue-on-error: true
         run: |
           curl -X POST http://localhost:8000/v1/chat/completions \
             -H "Content-Type: application/json" \
@@ -141,5 +150,8 @@ jobs:
             }' | jq .
 
       - name: Cleanup Container
-        run: docker rm -f mlc-server
         if: always()
+        run: |
+          echo "Dumping logs before cleanup..."
+          docker logs mlc-server || true
+          docker rm -f mlc-server || true
