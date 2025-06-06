@@ -1,9 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
 CMD=${1:-}
 
-# 🛠️ Build logic if explicitly requested
 if [[ "$CMD" == "build" ]]; then
   if [[ -f "CMakeLists.txt" ]]; then
     echo "[INFO] 🔨 Building project via CMake..."
@@ -13,15 +12,10 @@ if [[ "$CMD" == "build" ]]; then
   else
     echo "[INFO]  No CMakeLists.txt found. Skipping build step."
   fi
-  exit 0
+elif [[ "$CMD" == "" || "$CMD" == "serve" ]]; then
+  echo "[INFO] Starting FastAPI server..."
+  exec mlc_llm serve --host 0.0.0.0
+else
+  echo "[INFO]  Executing: $@"
+  exec "$@"
 fi
-
-# 🧪 If no command or running bash
-if [[ -z "${CMD}" || "$CMD" == "bash" ]]; then
-  echo "[INFO] 🐚 Starting interactive shell..."
-  exec bash
-fi
-
-# 🚀 Otherwise, execute the passed command
-echo "[INFO]  Executing: $@"
-exec "$@"
