@@ -149,8 +149,14 @@ jobs:
       - name: Setup Fly CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Ensure Fly.io app exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl apps create mlc-llm-app || echo "App already exists"
+
       - name: Deploy Docker image to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl deploy --remote-only --image ${{ env.IMAGE_NAME }}
+          flyctl deploy --remote-only --image ${{ env.IMAGE_NAME }} --app mlc-llm-app
