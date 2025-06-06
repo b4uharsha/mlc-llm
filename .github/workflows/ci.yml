@@ -95,13 +95,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: ./artifacts
+          pattern: wheel-*
+          merge-multiple: true
+
+      - name: Get Version from Tag
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
       - uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ github.ref_name }}
-          files: |
-            ./artifacts/wheel-ubuntu-latest/*.whl
-            ./artifacts/wheel-windows-latest/*.whl
-            ./artifacts/wheel-macos-latest/*.whl
+          name: Release v${{ env.VERSION }}
+          tag_name: v${{ env.VERSION }}
+          files: ./artifacts/**/*.whl
+          generate_release_notes: true
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
