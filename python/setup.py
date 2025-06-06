@@ -1,3 +1,4 @@
+# python/setup.py
 from setuptools import setup, find_packages
 
 setup(
@@ -5,11 +6,16 @@ setup(
     version="0.1.0",
     description="Python package for MLC LLM runtime",
     packages=find_packages(),
-    install_requires=[],
+    install_requires=[
+        "fastapi",
+        "uvicorn[standard]",
+        "pytest",
+        "requests",
+    ],
     python_requires=">=3.8",
     entry_points={
-        'console_scripts': [
-            'mlc_llm=mlc_llm.cli:main',  # Make sure cli.py defines a `main()` function
+        "console_scripts": [
+            "mlc_llm=mlc_llm.cli:main",
         ],
     },
 )
