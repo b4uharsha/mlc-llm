@@ -1,10 +1,34 @@
 #!/bin/bash
 set -euo pipefail
 
-MODEL="Llama-2-7b-chat-glm-4b-q0f16_0"
+CERTBOT_WEBROOT="/var/www/certbot"
+DOMAIN="mlc-llm-app.fly.dev"
+EMAIL="b4uharsha@gmail.com"  
 
-echo "[INFO] 📦 Downloading model: $MODEL"
-mlc_llm download-model --model-name "$MODEL"
+function obtain_cert() {
+  if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    echo "[INFO] Obtaining SSL cert for $DOMAIN"
+    certbot certonly --webroot -w "$CERTBOT_WEBROOT" -d "$DOMAIN" --non-interactive --agree-tos --email "$EMAIL"
+  else
+    echo "[INFO] SSL cert already exists for $DOMAIN"
+  fi
+}
 
-echo "[INFO] 🚀 Launching real model server..."
-exec mlc_llm serve --model "$MODEL" --device cpu --host 0.0.0.0
+function renew_cert() {
+  echo "[INFO] Renewing SSL certs if needed"
+  certbot renew --webroot -w "$CERTBOT_WEBROOT" --non-interactive --quiet
+}
+
+obtain_cert || true
+
+echo "[INFO] Starting Nginx"
+nginx
+
+# Run cert renewal loop in background
+while true; do
+  renew_cert
+  sleep 43200  # 12 hours
+done &
+
+echo "[INFO] Starting FastAPI server"
+exec mlc_llm serve --host 0.0.0.0 --port 8000
