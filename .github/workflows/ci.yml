@@ -40,7 +40,7 @@ jobs:
 
       - name: Validate mlc_llm CLI
         run: |
-          echo "Validating mlc_llm CLI..."
+          echo "✅ Validating mlc_llm CLI..."
           docker run --rm ${{ env.IMAGE_NAME }} mlc_llm
 
   test:
