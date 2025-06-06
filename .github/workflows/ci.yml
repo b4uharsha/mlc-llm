@@ -2,26 +2,22 @@ name: MLC-LLM CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write  # Required for release/tagging
-
-defaults:
-  run:
-    shell: bash
-    working-directory: .
+  contents: write
 
 jobs:
 
   docker-build:
-    name: Build Docker Image
+    name: ✨ Build & Push Docker Image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Needed for git tagging
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -35,9 +31,10 @@ jobs:
           file: docker/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository }}:latest
+          platforms: linux/amd64
 
   test:
-    name: Run Automated Tests
+    name: ✅ Run Tests in Docker
     runs-on: ubuntu-latest
     needs: docker-build
     steps:
@@ -52,12 +49,12 @@ jobs:
             ./scripts/test-image.sh
 
   build-wheels:
-    name: Build Python Wheels
+    name: 🏋️ Build Python Wheels
     runs-on: ${{ matrix.os }}
     needs: test
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -75,66 +72,51 @@ jobs:
           path: python/dist/*.whl
 
   release:
-    name: Create GitHub Release (Auto Tag)
+    name: 📦 GitHub Release
     runs-on: ubuntu-latest
     needs: build-wheels
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Required for tagging
-      - name: Create Auto Tag
-        run: |
-          TAG="auto-release-$(date +'%Y%m%d%H%M%S')"
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "github-actions@github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
-
       - uses: actions/download-artifact@v4
         with:
           path: ./artifacts
-
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: Release ${{ env.RELEASE_TAG }}
-          files: ./artifacts/**/*.whl
+          name: Release ${{ github.ref_name }}
+          files: |
+            ./artifacts/wheel-ubuntu-latest/*.whl
+            ./artifacts/wheel-windows-latest/*.whl
+            ./artifacts/wheel-macos-latest/*.whl
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy:
-    name: Deploy & Validate Model
+  deploy-demo-model:
+    name: 🚀 Deploy & Validate Demo Model
     runs-on: ubuntu-latest
     needs: release
     steps:
       - run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Launch MLC-LLM Demo Server
-        run: |
+      - run: |
           docker run -d --gpus all --name mlc-server -p 8000:8000 \
             ghcr.io/${{ github.repository }}:latest \
             bash -c "
               mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1 && \
               mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
             "
-
-      - name: Wait for API to be Healthy
-        run: |
+      - run: |
           for i in {1..15}; do
-            curl -fsS http://localhost:8000/healthz && break || sleep 5
+            curl -fsS http://localhost:8000/ && exit 0
+            sleep 5
           done
-
-      - name: Test Chat Completion
-        run: |
+          echo "Health check failed" >&2
+          exit 1
+      - run: |
           curl -X POST http://localhost:8000/v1/chat/completions \
             -H "Content-Type: application/json" \
             -d '{
               "model": "Llama-2-7b-chat-hf-q4f16_1",
               "messages": [{"role": "user", "content": "Hello, who are you?"}]
             }' | jq .
-
-      - name: Cleanup
-        run: docker rm -f mlc-server
+      - run: docker rm -f mlc-server
         if: always()
