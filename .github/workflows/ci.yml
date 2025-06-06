@@ -1,9 +1,8 @@
-name: MLC-LLM CI/CD Full Pipeline
+name: MLC-LLM CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,40 +11,36 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/mlc-llm:latest
-  FLY_APP_NAME: mlc-llm-app
 
 jobs:
-  build-test-release-deploy:
+  build-test-release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup QEMU for multi-platform builds
-        uses: docker/setup-qemu-action@v3
-
-      - name: Setup Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_PAT }}
 
-      - name: Build & Push Docker Image to GHCR
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/Dockerfile
           push: true
           tags: ${{ env.IMAGE_NAME }}
-          platforms: linux/amd64
 
-      - name: Run tests inside the Docker image
-        run: docker run --rm ${{ env.IMAGE_NAME }} ./scripts/test-image.sh
+      - name: Run tests inside Docker image
+        run: |
+          docker run --rm -p 8000:8000 ${{ env.IMAGE_NAME }} ./scripts/test-image.sh
 
       - name: Create GitHub Release with version tag
         uses: softprops/action-gh-release@v2
@@ -54,13 +49,15 @@ jobs:
           name: Release v${{ github.run_number }}
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Fly CLI
+  deploy:
+    needs: build-test-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Fly CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy to Fly.io using pushed image
-        run: flyctl deploy --remote-only --image ${{ env.IMAGE_NAME }}
+      - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --image ${{ env.IMAGE_NAME }}

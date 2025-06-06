@@ -2,7 +2,7 @@
 ARG PYTHON_VERSION=3.10
 
 #########################
-# Stage 1: Development & Build
+# Stage 1: Build
 #########################
 FROM nvidia/cuda:12.2.2-devel-ubuntu22.04 AS build
 
@@ -28,21 +28,14 @@ RUN chmod +x /mlc-llm/scripts/*.sh /mlc-llm/docker/entrypoint.sh
 RUN pip install --no-cache-dir "git+https://github.com/flashinfer-ai/flashinfer@v0.2.5" && \
     pip install --no-cache-dir -e ./python
 
-RUN if [ -f CMakeLists.txt ]; then \
-      mkdir -p build && cd build && cmake -GNinja .. && ninja; \
-    else \
-      echo "No CMakeLists.txt found. Skipping native build."; \
-    fi
-
 #########################
-# Stage 2: Runtime Image
+# Stage 2: Runtime
 #########################
 FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS runtime
 
 WORKDIR /mlc-llm
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Minimal system deps only - no nginx, no certbot
 COPY docker/apt-packages.txt /tmp/apt-packages.txt
 RUN apt-get update && \
     xargs -a /tmp/apt-packages.txt apt-get install -y --no-install-recommends && \
@@ -64,5 +57,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s CMD python -c "impor
 EXPOSE 8000
 
 ENTRYPOINT ["/mlc-llm/docker/entrypoint.sh"]
-
 VOLUME ["/workspace"]

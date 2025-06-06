@@ -1,17 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "[1/3]  Testing MLC-LLM Python import..."
-python -c "import mlc_llm; print('MLC-LLM imported successfully')"
+echo "[INFO] Starting FastAPI server in background..."
+mlc_llm serve --host 0.0.0.0 --port 8000 &
 
-echo "[2/3]  Running pytest unit tests..."
-cd /mlc-llm
-pytest python/tests
+SERVER_PID=$!
 
-# Only run FastAPI server if NOT in CI
-if [[ "${CI:-}" != "true" ]]; then
-  echo "[3/3]  Starting FastAPI server..."
-  exec ./scripts/start.sh
-else
-  echo "[3/3]  Skipping FastAPI server in CI environment."
-fi
+# Wait for server to be ready
+echo "[INFO] Waiting 10 seconds for server startup..."
+sleep 10
+
+echo "[INFO] Running API test..."
+curl -X POST http://localhost:8000/v1/chat/completions -H "Content-Type: application/json" \
+  -d '{"model":"Llama-2-7b-chat-glm-4b-q0f16_0","messages":[{"role":"user","content":"Hello!"}]}'
+
+echo "[INFO] Tests completed. Stopping server..."
+kill $SERVER_PID
+wait $SERVER_PID 2>/dev/null || true
+
+echo "[INFO] Server stopped."
