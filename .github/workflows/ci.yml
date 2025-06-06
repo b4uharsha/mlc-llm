@@ -1,10 +1,16 @@
 name: CI/CD Pipeline
 
-# Trigger on push to main, and allow manual runs
+# Trigger on:
+#   • push to the "main" branch
+#   • creation of ANY Git tag
+#   • manual dispatch from the Actions UI
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main
+    tags:
+      - "*"         # run whenever any tag is pushed (e.g. v1.0.0, release-2025)
+  workflow_dispatch:  # allows manual “Run workflow” button in GitHub Actions UI
 
 permissions:
   contents: write   # needed for tagging and creating a Release
@@ -164,5 +170,5 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          # This will use the `app = "…" ` value in fly.toml to know which app to update.
+          # Uses the `app = "…"` value from fly.toml to select which Fly app to update
           flyctl deploy --remote-only --image ${{ env.IMAGE_NAME }}
