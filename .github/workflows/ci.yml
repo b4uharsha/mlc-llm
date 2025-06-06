@@ -18,7 +18,6 @@ defaults:
 
 jobs:
 
-  # Stage 1: Build and Push Docker Image to GHCR
   docker-build:
     name: Build Docker Image
     runs-on: ubuntu-latest
@@ -39,7 +38,6 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:latest
           platforms: linux/amd64
 
-  # Stage 2: Run Automated Tests inside Docker
   test:
     name: Run Automated Tests
     runs-on: ubuntu-latest
@@ -55,7 +53,6 @@ jobs:
             ghcr.io/${{ github.repository }}:latest \
             ./scripts/test-image.sh
 
-  # Stage 3: Build Python Wheels for Linux, Windows, macOS
   build-wheels:
     name: Build Python Wheels
     runs-on: ${{ matrix.os }}
@@ -63,6 +60,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -71,21 +69,14 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
       - run: pip install build
       - run: python -m build python/
-      - name: Rename wheel to include platform
-        run: |
-          WHEEL=$(ls python/dist/*.whl)
-          PLATFORM=$(echo "${{ matrix.os }}" | cut -d'-' -f1)
-          VERSION=$(python -c "import importlib.metadata; print(importlib.metadata.version('mlc-llm'))" || echo "0.1.0")
-          mv "$WHEEL" "python/dist/mlc_llm-${VERSION}-${PLATFORM}.whl"
       - uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.os }}
           path: python/dist/*.whl
 
-  # Stage 4: Create GitHub Release
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
@@ -95,46 +86,47 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: ./artifacts
-          pattern: wheel-*
-          merge-multiple: true
 
-      - name: Get Version from Tag
+      - name: Prepare Wheel Files for Release
         run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          mkdir -p release
+          find ./artifacts -name "*.whl" | sort | uniq | while read f; do
+            os_name=$(basename "$(dirname "$f")" | sed 's/wheel-//')
+            base=$(basename "$f")
+            new_name="${base/.whl/-${os_name}.whl}"
+            cp "$f" "release/$new_name"
+          done
 
       - uses: softprops/action-gh-release@v2
         with:
-          name: Release v${{ env.VERSION }}
-          tag_name: v${{ env.VERSION }}
-          files: ./artifacts/**/*.whl
-          generate_release_notes: true
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          files: release/*.whl
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Stage 5: Deploy and Validate
   deploy-demo-model:
-    name: Deploy & Validate Service
+    name: Deploy & Validate Demo
     runs-on: ubuntu-latest
     needs: release
     steps:
       - run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-      - name: Start Demo Server
-        run: |
-          docker run -d --name mlc-server -p 8000:8000 \
+
+      - run: |
+          docker run -d --gpus all --name mlc-server -p 8000:8000 \
             ghcr.io/${{ github.repository }}:latest \
             bash -c "
               mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1 && \
               mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
             "
-      - name: Health Check
+
+      - name: Wait for Server Readiness
         run: |
           for i in {1..15}; do
-            curl -fsS http://localhost:8000/ && exit 0
-            sleep 5
+            curl -fsS http://localhost:8000/ && break || sleep 5
           done
-          echo "Health check failed" >&2
-          exit 1
+
       - name: Test Chat Completion Endpoint
         run: |
           curl -X POST http://localhost:8000/v1/chat/completions \
@@ -143,6 +135,7 @@ jobs:
               "model": "Llama-2-7b-chat-hf-q4f16_1",
               "messages": [{"role": "user", "content": "Hello, who are you?"}]
             }' | jq .
-      - name: Stop Demo Server
-        if: always()
+
+      - name: Cleanup
         run: docker rm -f mlc-server
+        if: always()
