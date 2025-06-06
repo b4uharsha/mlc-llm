@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN groupadd -g 1001 mlcgroup && \
     useradd -m -u 1001 -g mlcgroup -s /bin/bash mlcuser
 
-# 2) Copy apt/pip lists (must contain only actual package names)
+# 2) Copy apt/pip lists (must contain only real package names, no comments)
 COPY docker/apt-packages.txt       /tmp/apt-packages.txt
 COPY docker/pip-build.txt          /tmp/pip-build.txt
 COPY docker/pip-requirements.txt   /tmp/pip-requirements.txt
@@ -26,30 +26,30 @@ RUN apt-get update --allow-releaseinfo-change && \
     xargs -a /tmp/apt-packages.txt apt-get install -y --no-install-recommends && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 4) Symlink python3→python, pip3→pip, upgrade pip, install Python build‐only deps
+# 4) Symlink python3→python, pip3→pip, upgrade pip, install Python build-only deps
 RUN ln -sf /usr/bin/python3 /usr/bin/python && \
     ln -sf /usr/bin/pip3 /usr/bin/pip && \
     pip install --upgrade pip && \
     pip install --no-cache-dir -r /tmp/pip-build.txt -r /tmp/pip-requirements.txt
 
-# 5) Copy entire repository
+# 5) Copy entire repository into build stage
 COPY . /mlc-llm
 
-# 6) Make sure scripts and entrypoint are executable
+# 6) Ensure scripts and entrypoint are executable
 RUN chmod +x /mlc-llm/scripts/*.sh /mlc-llm/docker/entrypoint.sh
 
-# 7) chown to mlcuser and switch to non-root
+# 7) chown everything to mlcuser and switch to non-root
 RUN chown -R mlcuser:mlcgroup /mlc-llm
 USER mlcuser
 
-# 8) Ensure ~/.local/bin is on PATH (console-scripts install there)
+# 8) Ensure ~/.local/bin is on PATH (console-scripts install here)
 ENV PATH="/home/mlcuser/.local/bin:$PATH"
 
 # 9) Install FlashInfer + MLC-LLM in editable mode
 RUN pip install --no-cache-dir "git+https://github.com/flashinfer-ai/flashinfer@v0.2.5" && \
     pip install --no-cache-dir -e ./python
 
-# 10) Optional native build (CMake)
+# 10) Optional native build (CMake + Ninja)
 RUN if [ -f CMakeLists.txt ]; then \
       mkdir -p build && cd build && cmake -GNinja .. && ninja; \
     else \
@@ -67,7 +67,7 @@ LABEL maintainer="Your Name <you@example.com>"
 WORKDIR /mlc-llm
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 1) Create non-root user
+# 1) Create same non-root user
 RUN groupadd -g 1001 mlcgroup && \
     useradd -m -u 1001 -g mlcgroup -s /bin/bash mlcuser
 
@@ -88,14 +88,14 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python && \
 # 5) Copy everything from the build stage
 COPY --from=build /mlc-llm /mlc-llm
 
-# 6) Change ownership and switch to mlcuser
+# 6) chown to mlcuser and switch to non-root
 RUN chown -R mlcuser:mlcgroup /mlc-llm
 USER mlcuser
 
 # 7) Ensure ~/.local/bin is on PATH
 ENV PATH="/home/mlcuser/.local/bin:$PATH"
 
-# 8) Install runtime pip reqs + editable install
+# 8) Install runtime pip requirements + editable install
 RUN pip install --no-cache-dir -r /mlc-llm/docker/pip-requirements.txt && \
     pip install --no-cache-dir -e /mlc-llm/python
 
@@ -104,15 +104,15 @@ ENV TVM_LIBRARY_PATH=/mlc-llm/build
 ENV LD_LIBRARY_PATH=/mlc-llm/build:$LD_LIBRARY_PATH
 ENV PORT=8000
 
-# 10) Healthcheck (Python one‐liner)
+# 10) Healthcheck (Python one-liner)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s CMD \
     python -c "import socket, os, sys; s=socket.socket(); \
-try: s.connect(('localhost', int(os.environ.get('PORT','8000')))); s.close(); sys.exit(0) \
+try: s.connect(( 'localhost', int(os.environ.get('PORT','8000')) )); s.close(); sys.exit(0) \
 except: sys.exit(1)"
 
 # 11) Expose port and entrypoint
 EXPOSE 8000
 ENTRYPOINT ["/mlc-llm/docker/entrypoint.sh"]
 
-# 12) Allow workspace volume if needed
+# 12) Allow mounting a workspace
 VOLUME ["/workspace"]
