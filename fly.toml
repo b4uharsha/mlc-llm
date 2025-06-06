@@ -1,0 +1,26 @@
+# fly.toml
+app = "mlc-llm-server"
+
+[build]
+  image = "ghcr.io/YOUR_GITHUB_USERNAME/mlc-llm:latest"
+
+[env]
+  PORT = "8000"
+
+[[services]]
+  internal_port = 8000
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    interval = "10s"
+    timeout = "2s"
+    grace_period = "30s"
+    restart_limit = 6
