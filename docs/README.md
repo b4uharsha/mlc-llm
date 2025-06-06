@@ -74,16 +74,26 @@ mlc-llm/
 ├── docker/Dockerfile          # Multipurpose build image
 ├── python/                    # Python package source
 ├── scripts/test-image.sh      # Automated tests
+├── docs/assets/               # Architecture and pipeline diagrams
 ```
 
 ---
 
-## 🖼️ Architecture Diagram
+## 🖼️ Architecture Diagrams
 
-Below is the CI/CD pipeline overview:
+Below are the CI/CD and build pipeline diagrams.  
+**Make sure your images are located in `docs/assets/` in your repository.**
+
+### Build & Deployment Flow
 
 ![Build & Deployment Flow](assets/mlc-llm-build-flow.png)
+
+### CI/CD Architecture
+
 ![CI/CD Architecture](assets/cicd-architecture.png)
+
+### CI/CD Pipeline
+
 ![CI/CD Pipeline](assets/cicd-pipeline.png)
 
 ---
@@ -92,18 +102,42 @@ Below is the CI/CD pipeline overview:
 
 ```bash
 # Clone repo
-$ git clone https://github.com/b4uharsha/mlc-llm.git
-$ cd mlc-llm
+git clone https://github.com/b4uharsha/mlc-llm.git
+cd mlc-llm
 
 # Build docker image
-$ docker build -t mlc-llm-dev -f docker/Dockerfile .
+docker build -t mlc-llm-dev -f docker/Dockerfile .
 
 # Start interactive shell for dev
-$ docker run -it --rm -v $PWD:/mlc-llm mlc-llm-dev bash
+docker run -it --rm -v $PWD:/mlc-llm mlc-llm-dev bash
 
 # Run model serving demo manually
-$ mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1
-$ mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
+mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1
+mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
+```
+
+---
+
+## 🌐 Live Demo & Sample Output
+
+You can validate the deployment at:  
+**[https://mlc-llm.fly.dev/](https://mlc-llm.fly.dev/)**
+
+**Sample output:**
+
+```bash
+curl https://mlc-llm.fly.dev/
+# {"message":"MLC-LLM server running"}
+
+curl -X POST https://mlc-llm.fly.dev/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "Llama-2-7b-chat-glm-4b-q0f16_0",
+        "messages": [
+          { "role": "user", "content": "Hello, who are you?" }
+        ]
+      }'
+# {"model":"Llama-2-7b-chat-glm-4b-q0f16_0","choices":[{"message":{"role":"assistant","content":"Hello! I am a test model response."}}]}
 ```
 
 ---
@@ -120,7 +154,8 @@ graph TD
   F --> G[Send Test Chat Completion Request]
 ```
 
---
+---
+
 ## 📌 Optional Enhancements
 
 * [ ] Add UI support with `/docs` using FastAPI’s built-in Swagger
@@ -131,7 +166,7 @@ graph TD
 
 ## 📫 Maintainer
 
-**Harsha Reddy**
+**Harsha Reddy**  
 🔗 GitHub: [b4uharsha/mlc-llm](https://github.com/b4uharsha/mlc-llm)
 
 ---
