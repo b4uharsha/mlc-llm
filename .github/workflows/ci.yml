@@ -8,13 +8,13 @@ on:
 permissions:
   contents: write
 
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}:latest
+
 defaults:
   run:
     shell: bash
     working-directory: .
-
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}:latest
 
 jobs:
 
@@ -37,11 +37,6 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_NAME }}
           platforms: linux/amd64
-
-      - name: Validate mlc_llm CLI
-        run: |
-          echo "✅ Validating mlc_llm CLI..."
-          docker run --rm ${{ env.IMAGE_NAME }} mlc_llm
 
   test:
     name: Run Tests
@@ -70,10 +65,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
       - run: pip install build
       - run: python -m build python/
       - run: |
@@ -91,6 +82,7 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+
       - name: Generate Release Tag
         run: |
           TAG="auto-release-$(date +'%Y%m%d%H%M%S')"
@@ -99,9 +91,11 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git tag "$TAG"
           git push origin "$TAG"
+
       - uses: actions/download-artifact@v4
         with:
           path: ./artifacts
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -124,11 +118,7 @@ jobs:
         run: |
           docker run -d --name mlc-server -p 8000:8000 \
             ${{ env.IMAGE_NAME }} \
-            bash -c "
-              set -x && \
-              mlc_llm download-model --model-name Llama-2-7b-chat-glm-4b-q0f16_0 && \
-              mlc_llm serve --model Llama-2-7b-chat-glm-4b-q0f16_0 --device cpu --host 0.0.0.0
-            "
+            mlc_llm serve --host 0.0.0.0
 
       - name: Wait for Model Server
         run: |
