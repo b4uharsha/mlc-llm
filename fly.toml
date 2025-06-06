@@ -1,8 +1,8 @@
 # fly.toml
-app = "mlc-llm-server"
+app = "mlc-llm-app"
 
 [build]
-  image = "ghcr.io/YOUR_GITHUB_USERNAME/mlc-llm:latest"
+  image = "ghcr.io/b4uharsha/mlc-llm:latest"
 
 [env]
   PORT = "8000"
