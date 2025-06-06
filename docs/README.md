@@ -1,96 +1,135 @@
-# MLC-LLM CI/CD Pipeline
+# 🤖 MLC-LLM CI/CD + Demo Deployment
 
-This project uses GitHub Actions for a complete CI/CD workflow, including Docker image builds, automated testing, Python wheel packaging, GitHub Releases, and demo deployment.
+This project demonstrates how to build, test, package, and deploy [MLC-LLM](https://llm.mlc.ai) using GitHub Actions in a fully automated CI/CD pipeline. It includes:
 
-## Pipeline Overview
-
-1. **Build and Push Docker Image**
-   - Builds a multipurpose Docker image (for development and build).
-   - Pushes the image to GitHub Container Registry (GHCR).
-
-2. **Automated Tests**
-   - Runs all tests inside the Docker image.
-   - Gates further stages; if tests fail, the pipeline stops.
-
-3. **Build Python Wheels**
-   - Builds Python wheels for Linux, Windows, and macOS.
-   - Uploads wheels as workflow artifacts.
-
-4. **Create GitHub Release**
-   - On pushing a tag like `v1.0.0`, downloads wheel artifacts.
-   - Publishes a new GitHub Release with the built wheels attached.
-
-5. **Deploy and Validate Demo Model**
-   - Deploys the latest Docker image as a demo server.
-   - Runs a health check to ensure the service is running.
+* Multi-platform Python packaging (Linux, Windows, macOS)
+* Docker-based model compilation and testing
+* Automatic GitHub Releases
+* GPU-enabled demo model serving with FastAPI
 
 ---
 
-## How to Use the Pipeline
+## 🚀 What is MLC-LLM?
 
-### 1. On Every Push or Pull Request
+**MLC-LLM** enables efficient LLM inference on any device, including CPUs, NVIDIA/AMD GPUs, and mobile. It compiles and optimizes models to run across platforms without relying on heavyweight frameworks like PyTorch or TensorFlow.
 
-- The workflow runs on every push to `main` and on pull requests targeting `main`.
-- It builds the Docker image and runs all tests.
+Use-cases:
 
-### 2. Building and Publishing a Release
-
-To trigger a full release (including GitHub Release and deployment):
-
-1. **Create a version tag** (must start with `v`, e.g., `v1.2.3`):
-
-   ```sh
-   git tag v1.2.3
-   git push origin v1.2.3
-   ```
-
-2. The workflow will:
-   - Build and push the Docker image.
-   - Run all tests.
-   - Build wheels for all platforms.
-   - Create a GitHub Release with the wheels attached.
-   - Deploy and validate the demo server.
-
-### 3. Manual Workflow Run
-
-- You can also trigger the workflow manually from the GitHub Actions UI using the "Run workflow" button.
-- Note: The release stage will only run if the workflow is triggered by a tag starting with `v`.
+* Portable AI inference
+* Quantized LLM deployment (e.g., Llama-2, Mistral)
+* Edge or containerized model serving
 
 ---
 
-## Requirements
+## 📦 Key Technologies Used
 
-- **Secrets:**  
-  - `GHCR_PAT`: Personal Access Token for pushing Docker images to GHCR (with `write:packages` scope).
-  - (Optional) `GH_PAT`: Personal Access Token with `repo` scope if you want to use a PAT for GitHub Releases.
-
-- **Permissions:**  
-  The workflow sets `permissions: contents: write` to allow creating releases.
-
----
-
-## Notes
-
-- The release stage will be **skipped** unless all wheel builds succeed and the workflow is triggered by a tag starting with `v`.
-- The demo deployment will only run after a successful release.
+| Tool                          | Purpose                                      |
+| ----------------------------- | -------------------------------------------- |
+| `mlc-llm`                     | LLM compiler, model loader, server interface |
+| `CMake`, `Ninja`              | Native compilation for `mlc-llm` runtime     |
+| `Docker`, `GHCR`              | Containerized build and serving environment  |
+| `GitHub Actions`              | CI/CD automation                             |
+| `softprops/action-gh-release` | GitHub Release automation                    |
+| `curl`, `jq`                  | Test API endpoints from deployed container   |
 
 ---
 
-## Troubleshooting
+## 🔀 CI/CD Flow Overview
 
-- **Release job skipped:**  
-  Make sure you pushed a tag starting with `v` and all previous jobs succeeded.
-- **403 error on release:**  
-  Ensure your workflow has `permissions: contents: write` and is running in the main repository, not a fork.
-
----
-
-## Example Workflow Trigger
-
-```sh
-# Tag a new release
-git tag v1.3.0
-git push origin v1.3.0
+```
+[Commit or Tag Push]
+        │
+        ▼
+📈 GitHub Actions Triggered
+        │
+        ▼
+[Stage 1: Docker Image Build & Push]
+        │
+        ▼
+[Stage 2: Run Tests in Container]
+        │
+        ▼
+[Stage 3: Build Python Wheels (.whl)]
+        │
+        ▼
+[Stage 4: GitHub Release with Wheels]
+        │
+        ▼
+[Stage 5: Deploy Model with FastAPI]
+        │
+        ▼
+[POST Request to Validate Model Response]
 ```
 
-This will run the full pipeline and publish a new release if all steps succeed.
+---
+
+## 📊 Stage Summary
+
+| Stage               | Purpose                                | Output                                    |
+| ------------------- | -------------------------------------- | ----------------------------------------- |
+| `docker-build`      | Compile + push image to GHCR           | `ghcr.io/<repo>:latest`                   |
+| `test`              | Run model diagnostics inside container | Unit test validation                      |
+| `build-wheels`      | Cross-platform wheel packaging         | `.whl` files (Linux, Windows, macOS)      |
+| `release`           | GitHub release + artifact upload       | Tag-based release with binaries           |
+| `deploy-demo-model` | Launch FastAPI + model serving demo    | Accessible API on `http://localhost:8000` |
+| *(optional)* UI     | Future Gradio/Streamlit demo           | Public interface to interact with model   |
+
+---
+
+## 🧪 Example Model Used
+
+The deployed demo uses the quantized test model:
+
+```bash
+mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1
+mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
+```
+
+---
+
+## 🌐 Optional: UI Demo Preview (Future)
+
+In future enhancements, the deployment stage can be extended to include a UI demo using:
+
+* **Gradio**
+* **Streamlit**
+* **Hugging Face Spaces** or **Vercel**
+
+```python
+import gradio as gr
+from requests import post
+
+def chat(input):
+    payload = {
+        "model": "Llama-2-7b-chat-hf-q4f16_1",
+        "messages": [{"role": "user", "content": input}]
+    }
+    response = post("http://localhost:8000/v1/chat/completions", json=payload)
+    return response.json()["choices"][0]["message"]["content"]
+
+gr.Interface(fn=chat, inputs="text", outputs="text").launch()
+```
+
+---
+
+## 🧰 Final Notes
+
+* All CI/CD steps are defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+* The pipeline is triggered on **every commit to `main`** and **version tag push**
+* The deployment phase **pulls from GHCR** and serves a model immediately
+
+---
+
+## 🧠 Want to Contribute?
+
+Fork, improve the build process, or try deploying other quantized models using MLC’s build tools.
+
+---
+
+## 📌 Links
+
+* 🔗 [MLC-LLM Docs](https://llm.mlc.ai/)
+* 🐙 [GitHub Repo](https://github.com/b4uharsha/mlc-llm)
+* 📆 [GitHub Release](https://github.com/b4uharsha/mlc-llm/releases)
+
+---
