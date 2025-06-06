@@ -60,7 +60,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -69,9 +68,16 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
       - run: pip install build
       - run: python -m build python/
+      - name: Rename wheels with platform
+        run: |
+          for wheel in python/dist/*.whl; do
+            platform=$(echo "${{ matrix.os }}" | cut -d'-' -f1)
+            new_name="${wheel/.whl/-${platform}.whl}"
+            mv "$wheel" "$new_name"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.os }}
@@ -86,22 +92,18 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: ./artifacts
-
-      - name: Prepare Wheel Files for Release
+          pattern: wheel-*
+          merge-multiple: true
+      - name: Prepare Release Assets
         run: |
-          mkdir -p release
-          find ./artifacts -name "*.whl" | sort | uniq | while read f; do
-            os_name=$(basename "$(dirname "$f")" | sed 's/wheel-//')
-            base=$(basename "$f")
-            new_name="${base/.whl/-${os_name}.whl}"
-            cp "$f" "release/$new_name"
-          done
-
+          mkdir -p release-assets
+          find ./artifacts -name "*.whl" -exec cp {} release-assets/ \;
       - uses: softprops/action-gh-release@v2
         with:
           name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          files: release/*.whl
+          files: release-assets/*.whl
+          generate_release_notes: true
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -112,22 +114,29 @@ jobs:
     needs: release
     steps:
       - run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - run: |
-          docker run -d --gpus all --name mlc-server -p 8000:8000 \
+      - name: Start Server with Health Check
+        run: |
+          docker run -d --name mlc-server -p 8000:8000 \
             ghcr.io/${{ github.repository }}:latest \
             bash -c "
               mlc_llm download-model --model-name Llama-2-7b-chat-hf-q4f16_1 && \
-              mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
+              mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1 --host 0.0.0.0
             "
-
-      - name: Wait for Server Readiness
+      - name: Verify Server Logs
+        run: docker logs mlc-server
+      - name: Health Check
         run: |
-          for i in {1..15}; do
-            curl -fsS http://localhost:8000/ && break || sleep 5
+          for i in {1..20}; do
+            if curl -fsS http://localhost:8000/; then
+              echo "Server is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i/20: Waiting for server..."
+            sleep 6
           done
-
-      - name: Test Chat Completion Endpoint
+          echo "Health check failed after 20 attempts"
+          exit 1
+      - name: Test API Endpoint
         run: |
           curl -X POST http://localhost:8000/v1/chat/completions \
             -H "Content-Type: application/json" \
@@ -135,7 +144,6 @@ jobs:
               "model": "Llama-2-7b-chat-hf-q4f16_1",
               "messages": [{"role": "user", "content": "Hello, who are you?"}]
             }' | jq .
-
       - name: Cleanup
-        run: docker rm -f mlc-server
         if: always()
+        run: docker rm -f mlc-server || true
