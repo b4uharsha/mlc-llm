@@ -86,15 +86,15 @@ Below are the CI/CD and build pipeline diagrams.
 
 ### Build & Deployment Flow
 
-![Build & Deployment Flow](docs/assets/CI_CD Pipeline for Docker Deployment.png)
+![Build & Deployment Flow](assets/CI_CD_Pipeline_for_Docker_Deployment.png)
 
 ### CI/CD Architecture
 
-![CI/CD Architecture](docs/assets/MLC-LLM CI_CD Architecture Flowchart.png)
+![CI/CD Architecture](assets/MLC-LLM_CI_CD_Architecture_Flowchart.png)
 
 ### Model Deployment
 
-![CI/CD Pipeline](Model Deployment Process.png)
+![CI/CD Pipeline](assets/Model_Deployment_Process.png)
 
 ---
 
