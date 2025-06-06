@@ -1,5 +1,4 @@
-app = "mlc-llm-app"
-
+app = "mlc-llm"           # ← Replace “mlc-llm” with your actual Fly app name
 [build]
   image = "ghcr.io/b4uharsha/mlc-llm:latest"
 
