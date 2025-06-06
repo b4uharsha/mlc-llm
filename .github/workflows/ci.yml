@@ -49,6 +49,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
+      # ←→ ADDED: login step so that `docker run ghcr.io/...` can pull the image
+      - name: Login to GHCR (to allow pulling the just-published image)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
       - name: Run test-image.sh in container
         run: |
           docker run --rm ${{ needs.build-and-push.outputs.image }} ./scripts/test-image.sh
@@ -79,7 +87,7 @@ jobs:
         run: pip install build
         shell: bash
 
-      # Force Bash on both Linux and Windows so that $(…) works
+      # Force Bash on both Linux and Windows so that `WHL=$(ls …)` works as intended.
       - name: Build wheel
         run: |
           python -m build python/
@@ -141,4 +149,5 @@ jobs:
       - name: Deploy Docker image to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --image ${{ env.IMAGE_NAME }}
+        run: |
+          flyctl deploy --remote-only --image ${{ env.IMAGE_NAME }}
