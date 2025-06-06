@@ -82,7 +82,9 @@ mlc-llm/
 
 Below is the CI/CD pipeline overview:
 
-![CI/CD Architecture](https://files.chat.openai.com/file-000000005c406243918f50fd26b742b8)
+![Build & Deployment Flow](assets/mlc-llm-build-flow.png)
+![CI/CD Architecture](assets/cicd-architecture.png)
+![CI/CD Pipeline](assets/cicd-pipeline.png)
 
 ---
 
