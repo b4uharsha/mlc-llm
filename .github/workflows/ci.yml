@@ -3,7 +3,6 @@ name: MLC-LLM CI/CD
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -79,19 +78,30 @@ jobs:
           name: wheel-${{ matrix.os }}
           path: python/dist/*.whl
 
-  # Stage 4: Create Release
+  # Stage 4: Auto Release on Main Commits
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: build-wheels
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: ./artifacts
+
+      - name: Create Timestamped Tag
+        run: |
+          TAG="auto-release-$(date +'%Y%m%d%H%M%S')"
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
+
       - uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ github.ref_name }}
+          name: Release ${{ env.RELEASE_TAG }}
+          tag_name: ${{ env.RELEASE_TAG }}
           files: |
             ./artifacts/wheel-ubuntu-latest/*.whl
             ./artifacts/wheel-windows-latest/*.whl
@@ -100,9 +110,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Stage 5: Deploy and Validate
+  # Stage 5: Deploy & Validate Demo
   deploy-demo-model:
-    name: Deploy & Validate Demo
+    name: Deploy & Validate Service
     runs-on: ubuntu-latest
     needs: release
     steps:
@@ -116,11 +126,11 @@ jobs:
               mlc_llm serve --model Llama-2-7b-chat-hf-q4f16_1
             "
 
-      - name: Wait for Server Readiness
+      - name: Wait for FastAPI to be ready
         run: |
           for i in {1..15}; do
             curl -fsS http://localhost:8000/ && break || sleep 5
-          done || { echo 'Health check failed'; docker logs mlc-server; exit 1; }
+          done
 
       - name: Test Chat Completion Endpoint
         run: |
@@ -131,6 +141,5 @@ jobs:
               "messages": [{"role": "user", "content": "Hello, who are you?"}]
             }' | jq .
 
-      - name: Cleanup
-        run: docker rm -f mlc-server
+      - run: docker rm -f mlc-server
         if: always()
