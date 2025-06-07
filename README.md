@@ -64,6 +64,7 @@ docker build -t mlc-llm-dev -f docker/Dockerfile .
 # Start an interactive shell with the repo mounted
 docker run --rm -it -v "$PWD:/workspace" mlc-llm-dev bash
 ```
+The container entrypoint will run any command provided. If no command is given, it starts the FastAPI server by default.
 
 ## Live Demo & Sample Output
 
