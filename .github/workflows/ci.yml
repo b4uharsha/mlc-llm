@@ -44,7 +44,8 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.ORG_GHCR_PAT }}   # <-- use your org‐level secret here
+          password: ${{ secrets.GHCR_PAT }}   # use your repo‑level PAT secret
+          logout: true
 
       - name: Build & Push Docker image
         uses: docker/build-push-action@v5
@@ -67,7 +68,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.ORG_GHCR_PAT }}   # <-- use the same secret
+          password: ${{ secrets.GHCR_PAT }}   # use your repo‑level PAT secret
 
       - name: Pull test image
         run: docker pull ${{ needs.build-and-push.outputs.image }}
@@ -79,7 +80,6 @@ jobs:
             ${{ needs.build-and-push.outputs.image }} \
             ./scripts/test-image.sh
         continue-on-error: true
-
 
   ################################################################
   build-wheels:
