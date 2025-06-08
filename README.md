@@ -58,6 +58,8 @@ graph TD
 ## Local Development
 
 ```bash
+# To pull existing Docker image
+docker pull ghcr.io/b4uharsha/mlc-llm:latest
 # Build the Docker image
 docker build -t mlc-llm-dev -f docker/Dockerfile .
 
